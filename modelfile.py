@@ -20,7 +20,7 @@ class MEmodel(Model):
         self.process_data = DictList()
         # create the biomass/dilution constraint
         self._biomass = Component("biomass")
-        self._biomass_dilution = SummaryVariable("biomass_dilution")
+        self._biomass_dilution = MEReaction("biomass_dilution")
         self._biomass_dilution.add_metabolites({self._biomass: -1})
         self.add_reaction(self._biomass_dilution)
         self._biomass_dilution.upper_bound = mu
@@ -30,32 +30,32 @@ class MEmodel(Model):
         # protein
         self._unmodeled_protein_fraction = None
         self._protein_biomass = Component("protein_biomass")
-        self._protein_biomass_dilution = SummaryVariable("protein_biomass_dilution")
+        self._protein_biomass_dilution = MEReaction("protein_biomass_dilution")
         self._protein_biomass_dilution.add_metabolites({
             self._protein_biomass: -1,
             self._biomass: 1,
         })
         self._mRNA_biomass = Component("mRNA_biomass")
-        self._mRNA_biomass_dilution = SummaryVariable("mRNA_biomass_dilution")
+        self._mRNA_biomass_dilution = MEReaction("mRNA_biomass_dilution")
         self._mRNA_biomass_dilution.add_metabolites({
             self._mRNA_biomass: -1,
             self._biomass: 1,
         })
         self._tRNA_biomass = Component("tRNA_biomass")
-        self._tRNA_biomass_dilution = SummaryVariable("tRNA_biomass_dilution")
+        self._tRNA_biomass_dilution = MEReaction("tRNA_biomass_dilution")
         self._tRNA_biomass_dilution.add_metabolites({
             self._tRNA_biomass: -1,
             self._biomass: 1,
         })
         self._rRNA_biomass = Component("rRNA_biomass")
-        self._rRNA_biomass_dilution = SummaryVariable("rRNA_biomass_dilution")
+        self._rRNA_biomass_dilution = MEReaction("rRNA_biomass_dilution")
         self._rRNA_biomass_dilution.add_metabolites({
             self._rRNA_biomass: -1,
             self._biomass: 1,
         })
 
         self._ncRNA_biomass = Component("ncRNA_biomass")
-        self._ncRNA_biomass_dilution = SummaryVariable("ncRNA_biomass_dilution")
+        self._ncRNA_biomass_dilution = MEReaction("ncRNA_biomass_dilution")
         self._ncRNA_biomass_dilution.add_metabolites({
             self._ncRNA_biomass: -1,
             self._biomass: 1,

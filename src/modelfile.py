@@ -1,5 +1,6 @@
 from numpy import array
 from scipy.sparse import dok_matrix
+import cobra
 from cobra import Model, DictList
 from cobra import Metabolite as Component
 
@@ -9,12 +10,53 @@ import pandas
 
 mu = Symbol("mu", positive=True)
 
+def get_reaction_matrix_dict():
+    reaction_matrix = open('./raw_data/reaction_matrix.txt', 'r')
+    # These metabolites are mistakenly labeled as NoCompartment when they
+    # should really be in the cytosol.
+    move_to_cytosol = {'adp', 'atp', 'h', 'pi', '2tpr3dpcoa', 'dpm', 'fe2',
+                       'dad__5', 'met__L', 'tl'}
+    ME_reaction_dict = {}
+    for line in reaction_matrix:
+        line = line.strip()
+        if line.startswith("#") or len(line) == 0:
+            continue
+        rxn, met, comp, count = line.split('\t')
+        rxn = rxn.replace('DASH', '')
+        met = met.replace('DASH', '')
+        # use compartment to append appropriate suffix
+        if comp == 'Cytosol':
+            met += '_c'
+        elif comp == 'Periplasm':
+            met += '_p'
+        elif comp == 'Extra-organism':
+            met += '_e'
+        # some mistakenly annotated as no compartment
+        elif comp == 'No_Compartment' and met in move_to_cytosol:
+            met += '_c'
+        if rxn not in ME_reaction_dict:
+            ME_reaction_dict[rxn] = {}
+        ME_reaction_dict[rxn][met] = float(count)
+    reaction_matrix.close()
+    for rxn_id in ["PFL_act", "hemeD_synthesis", "23bpg_generation"]:
+        ME_reaction_dict[rxn_id] = \
+            {k + "_c": v for k, v in iteritems(ME_reaction_dict[rxn_id])}
+    return ME_reaction_dict
+
+
+def get_reaction_info_frame():
+    return pandas.read_csv("./raw_data/reactions.txt",
+                           delimiter="\t", index_col=0)
+
+def fix_id(id_str):
+    return id_str.replace("_DASH_", "__")
+
 def get_m_model():
     m = cobra.Model("e_coli_ME_M_portion")
     m.compartments = {"p": "Periplasm", "e": "Extra-organism", "c": "Cytosol"}
     compartment_lookup = {v: k for k, v in m.compartments.items()}
 
-    met_info = pandas.read_csv("../raw_data/metabolites.txt",
+    met_info = pandas.read_csv("./raw_data/metabolites.txt",
                                delimiter="\t", header=None, index_col=0,
                                names=["id", "name", "formula", "compartment",
                                       "data_source"])
@@ -55,7 +97,7 @@ def get_m_model():
         delimiter="\t", header=None, names=["rxn_id", "met_id", "compartment",
                                             "stoic"], index_col=1)
 
-    source_amounts = pandas.read_csv("../raw_data/exchange_bounds.txt",
+    source_amounts = pandas.read_csv("./raw_data/exchange_bounds.txt",
                                      delimiter="\t", index_col=0,
                                      names=["met_id", "amount"])
 

@@ -4,11 +4,108 @@ import cobra
 from cobra import Model, DictList
 from cobra import Metabolite as Component
 
-from reactionfiles import MEReaction
+from reactionfiles import MEReaction,StoichiometricData
 from sympy import Symbol
 import pandas
+from six import iteritems
+
 
 mu = Symbol("mu", positive=True)
+
+class MEComponent(Component):
+
+    def __init__(self, id):
+        Component.__init__(self, id)
+        pass
+
+    def remove_from_MEmodel(self, method='subtractive'):
+        try:
+            self._model.process_data.remove(self.id)
+            self._model.complex_data.remove(self.id)
+        except:
+            pass
+        if method == 'subtractive':
+		self.remove_from_model(method=method)
+
+class TranscribedGene(MEComponent):
+
+    def __init__(self, id):
+        MEComponent.__init__(self, id)
+        self.left_pos = None
+        self.right_pos = None
+        self.strand = None
+        self.RNA_type = ''
+        self.nucleotide_sequence = ''
+
+    @property
+    def nucleotide_count(self):
+        seq = self.nucleotide_sequence
+        counts = {i: seq.count(i) for i in ("A", "T", "G", "C")}
+        monophosphate_counts = {dogma.transcription_table[k].replace("tp_c",
+                                                                     "mp_c"): v
+                                for k, v in iteritems(counts)}
+        return monophosphate_counts
+
+    @property
+    def mass(self):
+	return compute_RNA_mass(self.nucleotide_sequence)
+
+class Complex(MEComponent):
+    @property
+    def metabolic_reactions(self):
+        """read-only link to MetabolicReactions"""
+        reaction_list = []
+        for reaction in self.reactions:
+            if reaction.__class__.__name__ == 'MetabolicReaction':
+                reaction_list.append(reaction)
+	return reaction_list
+
+def add_m_model_content(me_model, m_model, complex_metabolite_ids=[]):
+    """
+    Add metabolite and reaction attributes to me_model from m_model. Also
+    creates StoichiometricData objects for each reaction in m_model, and adds
+    reactions directly to me_model if they are exchanges or demands.
+    Args:
+        me_model: cobra.model.MEModel
+            The MEModel object to which the content will be added
+        m_model: cobra.model
+            The m_model which will act as the source of metabolic content for
+            MEModel
+        complex_metabolite_ids: list
+            List of complexes which are 'metabolites' in the m-model reaction
+            matrix, but should be treated as complexes
+    """
+    for met in m_model.metabolites:
+        if met.id in complex_metabolite_ids:
+            new_met = Complex(met.id)
+        elif met.id.startswith("RNA"):
+            new_met = TranscribedGene(met.id)
+        else:
+            new_met = MEComponent(met.id)
+        new_met.name = met.name
+        new_met.formula = met.formula
+        new_met.compartment = met.compartment
+        new_met.charge = met.charge
+        new_met.annotation = met.annotation
+        new_met.notes = met.notes
+        me_model.add_metabolites(new_met)
+
+    for reaction in m_model.reactions:
+        if reaction.id.startswith("EX_") or reaction.id.startswith("DM_"):
+            new_reaction = cobra.Reaction(reaction.id)
+            me_model.add_reaction(new_reaction)
+            new_reaction.lower_bound = reaction.lower_bound
+            new_reaction.upper_bound = reaction.upper_bound
+            for met, stoichiometry in iteritems(reaction.metabolites):
+                new_reaction.add_metabolites(
+                    {me_model.metabolites.get_by_id(met.id): stoichiometry})
+
+        else:
+            reaction_data = StoichiometricData(reaction.id, me_model)
+            reaction_data.lower_bound = reaction.lower_bound
+            reaction_data.upper_bound = reaction.upper_bound
+            reaction_data._stoichiometry = {k.id: v for k, v in iteritems(reaction.metabolites)}
+
 
 def get_reaction_matrix_dict():
     reaction_matrix = open('./raw_data/reaction_matrix.txt', 'r')
@@ -93,7 +190,7 @@ def get_m_model():
         m.add_reaction(reaction)
 
     sources_sinks = pandas.read_csv(
-        "../raw_data/reaction_matrix_sources_and_sinks.txt",
+        "./raw_data/reaction_matrix_sources_and_sinks.txt",
         delimiter="\t", header=None, names=["rxn_id", "met_id", "compartment",
                                             "stoic"], index_col=1)
 

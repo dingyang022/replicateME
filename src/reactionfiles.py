@@ -16,6 +16,49 @@ from sympy import Symbol
 mu = Symbol("mu", positive=True)
 
 
+class ProcessData(object):
+    """Generic class for holding information about a process
+    ME reactions are built from information in these objects
+    """
+
+    def __init__(self, id, model):
+        self.id = id
+        self._model = model
+        # parents need to be updated every time the process is updated
+        # a parent must have an update method
+        self._parent_reactions = set()
+        model.process_data.append(self)
+
+    @property
+    def model(self):
+        return self._model
+
+    @property
+    def parent_reactions(self):
+        return {self._model.reactions.get_by_id(i)
+                for i in self._parent_reactions}
+
+    def _update_parent_reactions(self):
+        reactions = self._model.reactions
+        for i in self._parent_reactions:
+            reactions.get_by_id(i).update()
+
+    def __repr__(self):
+        return "<%s %s at 0x%x>" % (self.__class__.__name__, self.id, id(self))
+
+class StoichiometricData(ProcessData):
+    """Encodes the stoichiometry  for a reaction.
+    Used by Metabolic Reactions
+    """
+    def __init__(self, id, model):
+        ProcessData.__init__(self, id, model)
+        model.stoichiometric_data.append(self)
+        self._stoichiometry = {}
+
+    @property
+    def stoichiometry(self):
+	return self._stoichiometry
+
 class MEReaction(Reaction):
     # TODO set _upper and _lower bounds as a property
     """

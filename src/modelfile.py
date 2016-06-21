@@ -72,8 +72,7 @@ def get_m_model():
         # set bounds on exchanges
         if reaction.id.startswith("EX_") and met in source_amounts.index:
             reaction.lower_bound = -source_amounts.amount[met]
-
-return m
+	return m
 
 class MEmodel(Model):
     def __init__(self, *args):

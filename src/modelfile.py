@@ -4,6 +4,10 @@ from cobra import Model, DictList
 from cobra import Metabolite as Component
 
 from reactionfiles import MEReaction
+from sympy import Symbol
+
+mu = Symbol("mu", positive=True)
+
 
 class MEmodel(Model):
     def __init__(self, *args):

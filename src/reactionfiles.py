@@ -11,6 +11,9 @@ from cobra.core.Formula import Formula
 from cobra import Metabolite as Component
 
 from sympy import Basic
+from sympy import Symbol
+
+mu = Symbol("mu", positive=True)
 
 
 class MEReaction(Reaction):

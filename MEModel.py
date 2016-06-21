@@ -3,11 +3,6 @@ from scipy.sparse import dok_matrix
 
 from cobra import Model, DictList
 
-from minime.core.MEReactions import *
-from minime.core.Components import Constraint
-from minime.util import mu
-
-
 class MEmodel(Model):
     def __init__(self, *args):
         Model.__init__(self, *args)

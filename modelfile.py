@@ -3,6 +3,8 @@ from scipy.sparse import dok_matrix
 from cobra import Model, DictList
 from cobra import Metabolite as Component
 
+from reactionfiles import MEReaction
+
 class MEmodel(Model):
     def __init__(self, *args):
         Model.__init__(self, *args)

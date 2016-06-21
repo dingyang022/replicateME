@@ -8,6 +8,7 @@ from six import iteritems
 
 from cobra import Reaction
 from cobra.core.Formula import Formula
+from cobra import Metabolite as Component
 
 from sympy import Basic
 

@@ -59,6 +59,65 @@ class StoichiometricData(ProcessData):
     def stoichiometry(self):
 	return self._stoichiometry
 
+class ModificationData(ProcessData):
+    def __init__(self, id, model):
+        ProcessData.__init__(self, id, model)
+        model.modification_data.append(self)
+        self.stoichiometry = {}
+        self.enzyme = None
+        self.keff = 65.
+
+    def get_complex_data(self):
+        for i in self._model.complex_data:
+            if self.id in i.modifications:
+		yield i
+
+class ComplexData(ProcessData):
+
+    @property
+    def formation(self):
+        """a read-only link to the formation reaction"""
+        try:
+            return self._model.reactions.get_by_id("formation_" + self.id)
+        except KeyError:
+            return None
+
+    @property
+    def complex(self):
+        """a read-only link to the complex object"""
+        return self._model.metabolites.get_by_id(self.complex_id)
+
+    @property
+    def complex_id(self):
+        return self.id if self._complex_id is None else self._complex_id
+
+    @complex_id.setter
+    def complex_id(self, value):
+        self._complex_id = None if value == self.id else value
+
+    def __init__(self, id, model):
+        ProcessData.__init__(self, id, model)
+        model.complex_data.append(self)
+        # {Component.id: stoichiometry}
+        self.stoichiometry = defaultdict(float)
+        self.chaperones = {}
+        # {ModificationData.id : number}
+        self.modifications = {}
+        self._complex_id = None  # assumed to be the same as id if None
+
+    def create_complex_formation(self, verbose=True):
+        """creates a complex formation reaction
+        This assumes none exists already. Will create a reaction (prefixed by
+        'formation_') which forms the complex"""
+        formation_id = "formation_" + self.id
+        if formation_id in self._model.reactions:
+            raise ValueError("reaction %s already in model" % formation_id)
+        formation = ComplexFormation(formation_id)
+        formation.complex_data_id = self.id
+        formation._complex_id = self.complex_id
+        self._model.add_reaction(formation)
+	formation.update(verbose=verbose)
+
 class MEReaction(Reaction):
     # TODO set _upper and _lower bounds as a property
     """
@@ -361,7 +420,6 @@ class MEReaction(Reaction):
         # filter out 0 values
         return {k: v for k, v in iteritems(reaction_element_dict) if v != 0}
 
-
 class MetabolicReaction(MEReaction):
     """Metabolic reaction including required enzymatic complex"""
 
@@ -502,8 +560,8 @@ class PostTranslationReaction(MEReaction):
         stoichiometry = defaultdict(float)
         metabolites = self._model.metabolites
         posttranslation_data = self.posttranslation_data
-        unprocessed_protein = self._posttranslation_data.unprocessed_protein_id
-        processed_protein = self._posttranslation_data.processed_protein_id
+        unprocessed_protein = posttranslation_data.unprocessed_protein_id
+        processed_protein = posttranslation_data.processed_protein_id
 
         stoichiometry[unprocessed_protein] -= 1
 
@@ -514,10 +572,14 @@ class PostTranslationReaction(MEReaction):
                                            unprocessed_protein)
             self._model.add_metabolites(protein_met)
 
+        stoichiometry = self.add_modifications(posttranslation_data.id,
+                                               stoichiometry)
+
         stoichiometry[protein_met.id] = 1
-        stoichiometry = self.add_translocation_pathways(posttranslation_data.id,
-                                                        unprocessed_protein,
-                                                        stoichiometry)
+        if len(posttranslation_data.translocation) > 0:
+            stoichiometry = self.add_translocation_pathways(posttranslation_data.id,
+                                                            unprocessed_protein,
+                                                            stoichiometry)
 
         object_stoichiometry = self.get_components_from_ids(stoichiometry,
                                                             verbose=verbose)
@@ -854,5 +916,4 @@ class tRNAChargingReaction(MEReaction):
         # Replace reaction stoichiometry with updated stoichiometry
         self.add_metabolites(object_stoichiometry,
                              add_to_container_model=False)
-
 
